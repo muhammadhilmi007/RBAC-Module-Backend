@@ -1,0 +1,59 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  roleId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role      Role     @relation(fields: [roleId], references: [id])
+}
+
+model Role {
+  id       Int    @id @default(autoincrement())
+  name     String @unique
+  
+  users    User[]
+  acl      ACL[]
+}
+
+model Feature {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  route     String?  // URL path for the feature
+  icon      String?  // Icon name for UI
+  
+  acl       ACL[]
+}
+
+model Permission {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  
+  acl       ACL[]
+}
+
+model ACL {
+  id           Int      @id @default(autoincrement())
+  roleId       Int
+  featureId    Int
+  permissionId Int
+  
+  role         Role       @relation(fields: [roleId], references: [id])
+  feature      Feature    @relation(fields: [featureId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, featureId, permissionId]) // Mencegah duplikasi hak akses
+}
