@@ -1,6 +1,7 @@
 // src/controllers/userController.js
 const { body, validationResult } = require('express-validator');
 const userService = require('../services/userService');
+const auditService = require('../services/auditService');
 const { catchAsync } = require('../utils/errorHandler');
 
 /**
@@ -37,6 +38,14 @@ const changePasswordValidation = [
 const getAllUsers = catchAsync(async (req, res) => {
   const users = await userService.getAllUsers();
 
+  // Catat aktivitas mengakses daftar user
+  auditService.logActivity({
+    userId: req.user.id,
+    action: 'READ',
+    module: 'USER',
+    description: 'Mengakses daftar pengguna'
+  }).catch(err => console.error('Error logging get all users activity:', err));
+
   return res.json({
     success: true,
     data: users
@@ -49,6 +58,15 @@ const getAllUsers = catchAsync(async (req, res) => {
 const getUserById = catchAsync(async (req, res) => {
   const { id } = req.params;
   const user = await userService.getUserById(id);
+
+  // Catat aktivitas melihat detail user
+  auditService.logActivity({
+    userId: req.user.id,
+    action: 'READ',
+    module: 'USER',
+    description: `Melihat detail pengguna dengan ID ${id}`,
+    resourceId: id
+  }).catch(err => console.error('Error logging get user by id activity:', err));
 
   return res.json({
     success: true,
@@ -72,6 +90,20 @@ const createUser = catchAsync(async (req, res) => {
   const userData = req.body;
   const user = await userService.createUser(userData);
 
+  // Catat aktivitas pembuatan user
+  auditService.logActivity({
+    userId: req.user.id,
+    action: 'CREATE',
+    module: 'USER',
+    description: `Membuat pengguna baru: ${user.name} (${user.email})`,
+    resourceId: user.id,
+    newValues: {
+      name: user.name,
+      email: user.email,
+      roleId: user.roleId
+    }
+  }).catch(err => console.error('Error logging create user activity:', err));
+
   return res.status(201).json({
     success: true,
     message: 'User berhasil dibuat',
@@ -94,7 +126,31 @@ const updateUser = catchAsync(async (req, res) => {
 
   const { id } = req.params;
   const userData = req.body;
+  
+  // Ambil data lama untuk audit trail
+  const oldUserData = await userService.getUserById(id);
+  
+  // Update user
   const user = await userService.updateUser(id, userData);
+
+  // Catat aktivitas update user
+  auditService.logActivity({
+    userId: req.user.id,
+    action: 'UPDATE',
+    module: 'USER',
+    description: `Mengupdate pengguna: ${user.name} (${user.email})`,
+    resourceId: user.id,
+    oldValues: {
+      name: oldUserData.name,
+      email: oldUserData.email,
+      roleId: oldUserData.roleId
+    },
+    newValues: {
+      name: user.name,
+      email: user.email,
+      roleId: user.roleId
+    }
+  }).catch(err => console.error('Error logging update user activity:', err));
 
   return res.json({
     success: true,
@@ -108,7 +164,26 @@ const updateUser = catchAsync(async (req, res) => {
  */
 const deleteUser = catchAsync(async (req, res) => {
   const { id } = req.params;
+  
+  // Ambil data user sebelum dihapus untuk audit trail
+  const userToDelete = await userService.getUserById(id);
+  
+  // Hapus user
   await userService.deleteUser(id);
+
+  // Catat aktivitas penghapusan user
+  auditService.logActivity({
+    userId: req.user.id,
+    action: 'DELETE',
+    module: 'USER',
+    description: `Menghapus pengguna: ${userToDelete.name} (${userToDelete.email})`,
+    resourceId: id,
+    oldValues: {
+      name: userToDelete.name,
+      email: userToDelete.email,
+      roleId: userToDelete.roleId
+    }
+  }).catch(err => console.error('Error logging delete user activity:', err));
 
   return res.json({
     success: true,
@@ -132,6 +207,15 @@ const changePassword = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const { oldPassword, newPassword } = req.body;
   await userService.changePassword(userId, oldPassword, newPassword);
+
+  // Catat aktivitas perubahan password
+  auditService.logActivity({
+    userId: req.user.id,
+    action: 'UPDATE',
+    module: 'USER',
+    description: 'User mengubah password',
+    resourceId: userId
+  }).catch(err => console.error('Error logging change password activity:', err));
 
   return res.json({
     success: true,

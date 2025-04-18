@@ -1,6 +1,7 @@
 // src/controllers/authController.js
 const { body, validationResult } = require('express-validator');
 const authService = require('../services/authService');
+const auditService = require('../services/auditService');
 const { catchAsync } = require('../utils/errorHandler');
 
 /**
@@ -34,6 +35,16 @@ const login = catchAsync(async (req, res) => {
     sameSite: 'strict',
     maxAge: parseInt(process.env.JWT_REFRESH_EXPIRES_IN_DAYS) * 24 * 60 * 60 * 1000
   });
+
+  // Catat aktivitas login
+  auditService.logActivity({
+    userId: result.user.id,
+    action: 'LOGIN',
+    module: 'AUTH',
+    description: `User ${result.user.name} (${result.user.email}) berhasil login`,
+    ipAddress: req.ip || req.socket.remoteAddress,
+    userAgent: req.headers['user-agent']
+  }).catch(err => console.error('Error logging login activity:', err));
 
   return res.json({
     success: true,
@@ -86,11 +97,26 @@ const logout = catchAsync(async (req, res) => {
   // Ambil refresh token dari cookie
   const refreshToken = req.cookies.refreshToken;
   
+  // Simpan user ID sebelum token dihapus (jika tersedia)
+  const userId = req.user?.id;
+  
   // Revoke refresh token
   await authService.logout(refreshToken);
 
   // Hapus cookie refresh token
   res.clearCookie('refreshToken');
+
+  // Catat aktivitas logout jika user ID tersedia
+  if (userId) {
+    auditService.logActivity({
+      userId,
+      action: 'LOGOUT',
+      module: 'AUTH',
+      description: `User ID ${userId} berhasil logout`,
+      ipAddress: req.ip || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent']
+    }).catch(err => console.error('Error logging logout activity:', err));
+  }
 
   return res.json({
     success: true,
@@ -104,6 +130,15 @@ const logout = catchAsync(async (req, res) => {
 const getProfile = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const profile = await authService.getProfile(userId);
+
+  // Catat aktivitas melihat profile
+  auditService.logActivity({
+    userId,
+    action: 'READ',
+    module: 'USER',
+    description: 'User melihat profile sendiri',
+    resourceId: userId
+  }).catch(err => console.error('Error logging profile view activity:', err));
 
   return res.json({
     success: true,

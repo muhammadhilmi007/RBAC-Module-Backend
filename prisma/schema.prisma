@@ -20,6 +20,7 @@ model User {
 
   role          Role     @relation(fields: [roleId], references: [id])
   refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]  // Relasi dengan audit logs
 }
 
 model Role {
@@ -72,4 +73,26 @@ model RefreshToken {
 
   @@index([userId])
   @@index([token])
+}
+
+// Model untuk Audit Trail
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  action        String   // Tipe aktivitas: CREATE, READ, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  module        String   // Modul/fitur yang diakses: User, Role, Feature, etc.
+  description   String   // Deskripsi aktivitas
+  ipAddress     String?  // Alamat IP pengguna
+  userAgent     String?  // Browser/aplikasi yang digunakan
+  resourceId    String?  // ID resource yang terkena dampak (jika ada)
+  oldValues     Json?    // Nilai sebelum perubahan (untuk UPDATE)
+  newValues     Json?    // Nilai setelah perubahan (untuk CREATE/UPDATE)
+  createdAt     DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([module])
+  @@index([createdAt])
 }
