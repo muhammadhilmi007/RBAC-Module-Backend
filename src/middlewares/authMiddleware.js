@@ -1,6 +1,7 @@
 // src/middlewares/authMiddleware.js
-const { verifyToken } = require('../utils/jwt');
+const { verifyAccessToken } = require('../utils/jwt');
 const { PrismaClient } = require('@prisma/client');
+const { AppError } = require('../utils/errorHandler');
 
 const prisma = new PrismaClient();
 
@@ -12,20 +13,14 @@ const authenticate = async (req, res, next) => {
     // Dapatkan token dari header Authorization
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Akses ditolak. Token tidak tersedia.' 
-      });
+      return next(new AppError('Akses ditolak. Token tidak tersedia.', 401));
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = verifyToken(token);
+    const decoded = verifyAccessToken(token);
 
     if (!decoded) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Token tidak valid atau kadaluarsa.' 
-      });
+      return next(new AppError('Token tidak valid atau kadaluarsa.', 401));
     }
 
     // Ambil informasi user dari database
@@ -35,10 +30,7 @@ const authenticate = async (req, res, next) => {
     });
 
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Pengguna tidak ditemukan.' 
-      });
+      return next(new AppError('Pengguna tidak ditemukan.', 401));
     }
 
     // Simpan informasi user ke request untuk digunakan di middleware/controller berikutnya
@@ -54,11 +46,7 @@ const authenticate = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Terjadi kesalahan saat autentikasi.' 
-    });
+    next(new AppError('Terjadi kesalahan saat autentikasi.', 500));
   }
 };
 

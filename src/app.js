@@ -2,8 +2,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const { errorHandler } = require('./utils/errorHandler');
+const { setupTokenCleanup } = require('./utils/tokenCleanup');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -17,9 +19,18 @@ const permissionRoutes = require('./routes/permissionRoutes');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// CORS configuration with credentials
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true, // Important for cookies with credentials
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser()); // Parse cookies
 app.use(morgan('dev'));
 
 // Routes
@@ -49,6 +60,9 @@ app.use((req, res) => {
     message: 'Route tidak ditemukan'
   });
 });
+
+// Setup token cleanup setiap 12 jam
+setupTokenCleanup(12);
 
 // Start server
 app.listen(PORT, () => {

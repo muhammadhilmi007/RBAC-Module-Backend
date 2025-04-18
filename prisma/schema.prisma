@@ -10,15 +10,16 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  roleId    Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  name          String
+  email         String   @unique
+  password      String
+  roleId        Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  role      Role     @relation(fields: [roleId], references: [id])
+  role          Role     @relation(fields: [roleId], references: [id])
+  refreshTokens RefreshToken[]
 }
 
 model Role {
@@ -56,4 +57,19 @@ model ACL {
   permission   Permission @relation(fields: [permissionId], references: [id])
 
   @@unique([roleId, featureId, permissionId]) // Mencegah duplikasi hak akses
+}
+
+model RefreshToken {
+  id            Int      @id @default(autoincrement())
+  token         String   @unique
+  userId        Int
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isRevoked     Boolean  @default(false)
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
 }
