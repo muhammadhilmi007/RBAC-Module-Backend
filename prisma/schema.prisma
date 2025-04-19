@@ -20,15 +20,21 @@ model User {
 
   role          Role     @relation(fields: [roleId], references: [id])
   refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]  // Relasi dengan audit logs
+  auditLogs     AuditLog[]
 }
 
 model Role {
-  id       Int    @id @default(autoincrement())
-  name     String @unique
+  id             Int      @id @default(autoincrement())
+  name           String   @unique
+  description    String?
+  parentRoleId   Int?     // Parent role reference for inheritance
   
-  users    User[]
-  acl      ACL[]
+  users          User[]
+  acl            ACL[]
+  
+  // Self-reference for role inheritance
+  parentRole     Role?    @relation("RoleInheritance", fields: [parentRoleId], references: [id])
+  childRoles     Role[]   @relation("RoleInheritance")
 }
 
 model Feature {
@@ -75,7 +81,6 @@ model RefreshToken {
   @@index([token])
 }
 
-// Model untuk Audit Trail
 model AuditLog {
   id            Int      @id @default(autoincrement())
   userId        Int

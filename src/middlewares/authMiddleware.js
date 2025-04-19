@@ -23,10 +23,16 @@ const authenticate = async (req, res, next) => {
       return next(new AppError('Token tidak valid atau kadaluarsa.', 401));
     }
 
-    // Ambil informasi user dari database
+    // Ambil informasi user dari database dengan role dan parent role
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      include: { role: true }
+      include: { 
+        role: {
+          include: {
+            parentRole: true
+          }
+        } 
+      }
     });
 
     if (!user) {
@@ -40,7 +46,12 @@ const authenticate = async (req, res, next) => {
       name: user.name,
       role: {
         id: user.role.id,
-        name: user.role.name
+        name: user.role.name,
+        parentRoleId: user.role.parentRoleId || null,
+        parentRole: user.role.parentRole ? {
+          id: user.role.parentRole.id,
+          name: user.role.parentRole.name
+        } : null
       }
     };
 

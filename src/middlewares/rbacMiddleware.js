@@ -34,10 +34,14 @@ const checkAccess = (featureName, permissionName) => {
         });
       }
 
-      // Cek apakah user memiliki akses berdasarkan rolenya
+      // Dapatkan chain role (role saat ini dan semua parent roles)
+      const roleChain = await getRoleChain(req.user.role.id);
+      const roleIds = roleChain.map(role => role.id);
+      
+      // Cek apakah user memiliki akses berdasarkan rolenya atau parent roles
       const access = await prisma.aCL.findFirst({
         where: {
-          roleId: req.user.role.id,
+          roleId: { in: roleIds },
           featureId: feature.id,
           permissionId: permission.id
         }
@@ -60,6 +64,33 @@ const checkAccess = (featureName, permissionName) => {
     }
   };
 };
+
+/**
+ * Mendapatkan rantai role (role saat ini dan semua parent roles)
+ * @param {Number} roleId - ID role
+ * @returns {Promise<Array>} - Array of role objects
+ */
+async function getRoleChain(roleId) {
+  const result = [];
+  let currentRoleId = roleId;
+  const visitedRoles = new Set(); // Untuk mencegah infinite loop jika ada circular reference
+  
+  while (currentRoleId && !visitedRoles.has(currentRoleId)) {
+    visitedRoles.add(currentRoleId);
+    
+    const role = await prisma.role.findUnique({
+      where: { id: currentRoleId },
+      select: { id: true, name: true, parentRoleId: true }
+    });
+    
+    if (!role) break;
+    
+    result.push(role);
+    currentRoleId = role.parentRoleId;
+  }
+  
+  return result;
+}
 
 module.exports = {
   checkAccess

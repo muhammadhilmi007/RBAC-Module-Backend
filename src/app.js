@@ -12,6 +12,7 @@ const authRoutes = require('./routes/authRoutes');
 const aclRoutes = require('./routes/aclRoutes');
 const userRoutes = require('./routes/userRoutes');
 const roleRoutes = require('./routes/roleRoutes');
+const roleHierarchyRoutes = require('./routes/roleHierarchyRoutes');
 const featureRoutes = require('./routes/featureRoutes');
 const permissionRoutes = require('./routes/permissionRoutes');
 const auditRoutes = require('./routes/auditRoutes');
@@ -39,9 +40,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/acl', aclRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/role-hierarchy', roleHierarchyRoutes); // Tambahkan route untuk role hierarchy
 app.use('/api/features', featureRoutes);
 app.use('/api/permissions', permissionRoutes);
-app.use('/api/audit', auditRoutes); // Tambahkan route untuk audit logs
+app.use('/api/audit', auditRoutes);
 
 // Basic route for testing
 app.get('/api/health', (req, res) => {

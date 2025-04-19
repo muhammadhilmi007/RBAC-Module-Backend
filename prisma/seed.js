@@ -5,7 +5,8 @@ const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
 
 async function main() {
-  // Bersihkan database
+  // Bersihkan database - hapus dalam urutan yang benar untuk menghindari constraint violations
+  await prisma.auditLog.deleteMany();
   await prisma.aCL.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
@@ -63,20 +64,77 @@ async function main() {
 
   console.log('Created features');
 
-  // Buat Roles
+  // Buat Roles dengan hierarki
+  // Level 1 - Root Roles
   const superAdminRole = await prisma.role.create({
-    data: { name: 'Super Admin' }
+    data: { 
+      name: 'Super Admin',
+      description: 'Role dengan akses penuh ke seluruh sistem'
+    }
   });
 
+  // Level 2 - Roles dengan parent Super Admin
   const kepalaCabangRole = await prisma.role.create({
-    data: { name: 'Kepala Cabang' }
+    data: { 
+      name: 'Kepala Cabang',
+      description: 'Mengelola operasional cabang',
+      parentRoleId: superAdminRole.id // Mewarisi dari Super Admin
+    }
   });
 
+  const managerKeuanganRole = await prisma.role.create({
+    data: { 
+      name: 'Manager Keuangan',
+      description: 'Mengelola keuangan perusahaan',
+      parentRoleId: superAdminRole.id // Mewarisi dari Super Admin
+    }
+  });
+
+  // Level 3 - Roles dengan parent Kepala Cabang
   const adminRole = await prisma.role.create({
-    data: { name: 'Admin' }
+    data: { 
+      name: 'Admin',
+      description: 'Administrasi umum',
+      parentRoleId: kepalaCabangRole.id // Mewarisi dari Kepala Cabang
+    }
   });
 
-  console.log('Created roles');
+  const supervisorRole = await prisma.role.create({
+    data: { 
+      name: 'Supervisor',
+      description: 'Mengawasi operasional harian',
+      parentRoleId: kepalaCabangRole.id // Mewarisi dari Kepala Cabang
+    }
+  });
+
+  // Level 3 - Roles dengan parent Manager Keuangan
+  const staffKeuanganRole = await prisma.role.create({
+    data: { 
+      name: 'Staff Keuangan',
+      description: 'Mengelola transaksi keuangan harian',
+      parentRoleId: managerKeuanganRole.id // Mewarisi dari Manager Keuangan
+    }
+  });
+
+  // Level 4 - Roles dengan parent Admin
+  const operatorRole = await prisma.role.create({
+    data: { 
+      name: 'Operator',
+      description: 'Operasional dasar sistem',
+      parentRoleId: adminRole.id // Mewarisi dari Admin
+    }
+  });
+
+  // Level 4 - Roles dengan parent Supervisor
+  const staffCabangRole = await prisma.role.create({
+    data: { 
+      name: 'Staff Cabang',
+      description: 'Staff operasional cabang',
+      parentRoleId: supervisorRole.id // Mewarisi dari Supervisor
+    }
+  });
+
+  console.log('Created roles with hierarchy');
 
   // Buat akses Super Admin (akses penuh ke semua fitur)
   const superAdminACLs = [];
@@ -120,6 +178,12 @@ async function main() {
       roleId: kepalaCabangRole.id,
       featureId: features[3].id, // Laporan Keuangan
       permissionId: permissions[0].id // View
+    },
+    // Pengaturan (View only)
+    {
+      roleId: kepalaCabangRole.id,
+      featureId: features[4].id, // Pengaturan
+      permissionId: permissions[0].id // View
     }
   ];
 
@@ -152,6 +216,12 @@ async function main() {
       roleId: adminRole.id,
       featureId: features[1].id, // Manajemen Pengguna
       permissionId: permissions[2].id // Edit
+    },
+    // Pengaturan (View only)
+    {
+      roleId: adminRole.id,
+      featureId: features[4].id, // Pengaturan
+      permissionId: permissions[0].id // View
     }
   ];
 
@@ -161,37 +231,77 @@ async function main() {
 
   console.log('Created Admin ACLs');
 
-  // Buat users
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  // Buat users untuk testing hierarki role
+  const hashedPassword = await bcrypt.hash('password', 10);
 
-  await prisma.user.create({
-    data: {
-      name: 'Direktur Utama',
-      email: 'direktur@example.com',
-      password: hashedPassword,
-      roleId: superAdminRole.id
-    }
-  });
+  const users = await Promise.all([
+    prisma.user.create({
+      data: {
+        name: 'Super Admin',
+        email: 'superadmin@example.com',
+        password: hashedPassword,
+        roleId: superAdminRole.id
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Kepala Cabang',
+        email: 'kepalacabang@example.com',
+        password: hashedPassword,
+        roleId: kepalaCabangRole.id
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Manager Keuangan',
+        email: 'keuangan@example.com',
+        password: hashedPassword,
+        roleId: managerKeuanganRole.id
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Admin',
+        email: 'admin@example.com',
+        password: hashedPassword,
+        roleId: adminRole.id
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Supervisor',
+        email: 'supervisor@example.com',
+        password: hashedPassword,
+        roleId: supervisorRole.id
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Staff Keuangan',
+        email: 'staffkeuangan@example.com',
+        password: hashedPassword,
+        roleId: staffKeuanganRole.id
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Operator',
+        email: 'operator@example.com',
+        password: hashedPassword,
+        roleId: operatorRole.id
+      }
+    }),
+    prisma.user.create({
+      data: {
+        name: 'Staff Cabang',
+        email: 'staffcabang@example.com',
+        password: hashedPassword,
+        roleId: staffCabangRole.id
+      }
+    })
+  ]);
 
-  await prisma.user.create({
-    data: {
-      name: 'Kepala Cabang Jakarta',
-      email: 'cabang.jakarta@example.com',
-      password: hashedPassword,
-      roleId: kepalaCabangRole.id
-    }
-  });
-
-  await prisma.user.create({
-    data: {
-      name: 'Admin',
-      email: 'admin@example.com',
-      password: hashedPassword,
-      roleId: adminRole.id
-    }
-  });
-
-  console.log('Created users');
+  console.log('Created users with hierarchical roles');
 }
 
 main()
