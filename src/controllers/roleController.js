@@ -67,7 +67,7 @@ const createRole = catchAsync(async (req, res) => {
   }
 
   const { name } = req.body;
-  const role = await roleService.createRole(name);
+  const role = await roleService.createRole({ name });
 
   // Catat aktivitas
   auditService.logActivity({
